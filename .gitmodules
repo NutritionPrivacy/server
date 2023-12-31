@@ -1,0 +1,3 @@
+[submodule "spec/web-api"]
+	path = spec/web-api
+	url = https://github.com/NutritionPrivacy/web-api
