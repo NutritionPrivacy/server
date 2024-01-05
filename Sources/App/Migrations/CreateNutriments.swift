@@ -1,0 +1,112 @@
+//
+//  File.swift
+//  
+//
+//  Created by Philipp Schmid on 04.01.24.
+//
+
+import Foundation
+import Fluent
+
+struct CreateProductNutriments: Migration {
+    func prepare(on database: Database) -> EventLoopFuture<Void> {
+        database.schema("product_nutriments")
+            .field("id", .uuid, .references("product", "id", onDelete: .cascade), .identifier(auto: false))
+            .field("energy_100g", .int, .required)
+            .field("proteins_100g", .int, .required)
+            .field("fat_100g", .double, .required)
+            .field("carbohydrates_100g", .double, .required)
+
+            // Optional fields
+            .field("beta_carotene_100g", .double)
+            .field("salt_100g", .double)
+            .field("casein_100g", .double)
+            .field("serum_proteins_100g", .double)
+            .field("nucleotides_100g", .double)
+            .field("sugars_100g", .double)
+            .field("sucrose_100g", .double)
+            .field("glucose_100g", .double)
+            .field("fructose_100g", .double)
+            .field("lactose_100g", .double)
+            .field("maltose_100g", .double)
+            .field("maltodextrins_100g", .double)
+            .field("starch_100g", .double)
+            .field("polyols_100g", .double)
+            .field("saturated_fat_100g", .double)
+            .field("butyric_acid_100g", .double)
+            .field("caproic_acid_100g", .double)
+            .field("caprylic_acid_100g", .double)
+            .field("capric_acid_100g", .double)
+            .field("lauric_acid_100g", .double)
+            .field("myristic_acid_100g", .double)
+            .field("palmitic_acid_100g", .double)
+            .field("stearic_acid_100g", .double)
+            .field("arachidic_acid_100g", .double)
+            .field("behenic_acid_100g", .double)
+            .field("lignoceric_acid_100g", .double)
+            .field("cerotic_acid_100g", .double)
+            .field("montanic_acid_100g", .double)
+            .field("melissic_acid_100g", .double)
+            .field("monounsaturated_fat_100g", .double)
+            .field("polyunsaturated_fat_100g", .double)
+            .field("omega_3_fat_100g", .double)
+            .field("alpha_linolenic_acid_100g", .double)
+            .field("eicosapentaenoic_acid_100g", .double)
+            .field("docosahexaenoic_acid_100g", .double)
+            .field("omega_6_fat_100g", .double)
+            .field("linoleic_acid_100g", .double)
+            .field("arachidonic_acid_100g", .double)
+            .field("gamma_linolenic_acid_100g", .double)
+            .field("dihomo_gamma_linolenic_acid_100g", .double)
+            .field("omega_9_fat_100g", .double)
+            .field("oleic_acid_100g", .double)
+            .field("elaidic_acid_100g", .double)
+            .field("gondoic_acid_100g", .double)
+            .field("mead_acid_100g", .double)
+            .field("erucic_acid_100g", .double)
+            .field("nervonic_acid_100g", .double)
+            .field("trans_fat_100g", .double)
+            .field("cholesterol_100g", .double)
+            .field("fiber_100g", .double)
+            .field("sodium_100g", .double)
+            .field("alcohol_100g", .double)
+            .field("vitamin_a_100g", .double)
+            .field("vitamin_d_100g", .double)
+            .field("vitamin_e_100g", .double)
+            .field("vitamin_k_100g", .double)
+            .field("vitamin_c_100g", .double)
+            .field("vitamin_b1_100g", .double)
+            .field("vitamin_b2_100g", .double)
+            .field("vitamin_pp_100g", .double)
+            .field("vitamin_b6_100g", .double)
+            .field("vitamin_b9_100g", .double)
+            .field("vitamin_b12_100g", .double)
+            .field("biotin_100g", .double)
+            .field("pantothenic_acid_100g", .double)
+            .field("silica_100g", .double)
+            .field("bicarbonate_100g", .double)
+            .field("potassium_100g", .double)
+            .field("chloride_100g", .double)
+            .field("calcium_100g", .double)
+            .field("phosphorus_100g", .double)
+            .field("iron_100g", .double)
+            .field("magnesium_100g", .double)
+            .field("zinc_100g", .double)
+            .field("copper_100g", .double)
+            .field("manganese_100g", .double)
+            .field("fluoride_100g", .double)
+            .field("selenium_100g", .double)
+            .field("chromium_100g", .double)
+            .field("molybdenum_100g", .double)
+            .field("iodine_100g", .double)
+            .field("caffeine_100g", .double)
+            .field("taurine_100g", .double)
+
+            .create()
+    }
+
+    func revert(on database: Database) -> EventLoopFuture<Void> {
+        database.schema("product_nutriments").delete()
+    }
+}
+
