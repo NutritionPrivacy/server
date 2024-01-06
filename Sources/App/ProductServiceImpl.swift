@@ -34,7 +34,7 @@ struct ProductServiceImpl: APIProtocol {
             .filter(\.$id == id)
             .first()
         if let fetchedProduct {
-            return .ok(.init(body: .json(ProductMappingHelper.convertToDto(fetchedProduct))))
+            return .ok(.init(body: .json(try ProductMappingHelper.convertToDto(fetchedProduct))))
         } else {
             return .notFound(.init())
         }
@@ -63,7 +63,7 @@ struct ProductServiceImpl: APIProtocol {
         
         let fetchedProducts = try await productSearch(searchText, page: page)
         
-        let products = fetchedProducts.map { ProductMappingHelper.convertToDto($0) }
+        let products = try fetchedProducts.map { try ProductMappingHelper.convertToDto($0) }
         return .ok(.init(body: .json(.init(page: page, array: products))))
     }
     

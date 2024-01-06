@@ -2,19 +2,23 @@ import Foundation
 
 enum ProductMappingHelperError: Error {
     case invalidUUID
+    case missingProductNutriments
 }
 
 enum ProductMappingHelper {
     static let source = "NutritionPrivacy"
     
-    static func convertToDto(_ product: Product) -> Components.Schemas.Product {
-        Components.Schemas.Product(id: product.id?.uuidString ?? "N/A",
+    static func convertToDto(_ product: Product) throws -> Components.Schemas.Product {
+        guard let nutriments = product.nutriments else {
+            throw ProductMappingHelperError.missingProductNutriments
+        }
+        return Components.Schemas.Product(id: product.id?.uuidString ?? "N/A",
                                    barcode: product.barcode,
                                    names: getLocalizedNames(for: product),
                                    brands: getLocalizedBrands(for: product),
                                    servings: getServings(from: product),
                                    totalQuantity: getQuantity(from: product),
-                                   nutriments: .init(from: product.nutriments),
+                                   nutriments: .init(from: nutriments),
                                    verified: product.verified,
                                    source: source)
     }

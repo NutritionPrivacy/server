@@ -23,8 +23,10 @@ final class Product: Model {
     @Field(key: "verified")
     var verified: Bool
 
-    @Parent(key: "id")
-    var nutriments: ProductNutriments
+    // semantically this is not correct because the 1:1 relationship should always exist but Vapor Fluent does not support this yet.
+    // Out of convenience OptionalChild gets used for now.
+    @OptionalChild(for: \.$product)
+    var nutriments: ProductNutriments?
     
     @Children(for: \.$product)
     var productNames: [ProductName]
