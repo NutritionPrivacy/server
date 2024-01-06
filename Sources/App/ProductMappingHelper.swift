@@ -290,7 +290,7 @@ extension Components.Schemas.Nutriments {
         self.init(
             energy: productNutriments.energy100g,
             fats: productNutriments.fat100g,
-            proteins: Int(productNutriments.proteins100g),
+            proteins: productNutriments.proteins100g,
             carbohydrates: productNutriments.carbohydrates100g,
             fatDetails: Components.Schemas.Fats(
                 saturatedFat: productNutriments.saturatedFat100g,

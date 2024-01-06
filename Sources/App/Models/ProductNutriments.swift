@@ -17,7 +17,7 @@ final class ProductNutriments: Model {
     var energy100g: Int
 
     @Field(key: "proteins_100g")
-    var proteins100g: Int
+    var proteins100g: Double
 
     @Field(key: "fat_100g")
     var fat100g: Double
@@ -277,7 +277,7 @@ final class ProductNutriments: Model {
     init(
         id: UUID? = nil,
         energy100g: Int,
-        proteins100g: Int,
+        proteins100g: Double,
         fat100g: Double,
         carbohydrates100g: Double,
         betaCarotene100g: Double? = nil,

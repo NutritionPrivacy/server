@@ -13,7 +13,7 @@ struct CreateProductNutriments: Migration {
         database.schema("product_nutriments")
             .field("id", .uuid, .references("product", "id", onDelete: .cascade), .identifier(auto: false))
             .field("energy_100g", .int, .required)
-            .field("proteins_100g", .int, .required)
+            .field("proteins_100g", .double, .required)
             .field("fat_100g", .double, .required)
             .field("carbohydrates_100g", .double, .required)
 

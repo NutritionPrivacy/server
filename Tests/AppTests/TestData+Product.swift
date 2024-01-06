@@ -20,7 +20,7 @@ extension TestData {
     static func createDummyProductNutriments(
             id: UUID,
             energy100g: Int,
-            proteins100g: Int,
+            proteins100g: Double,
             fat100g: Double,
             carbohydrates100g: Double,
             betaCarotene100g: Double? = nil,
