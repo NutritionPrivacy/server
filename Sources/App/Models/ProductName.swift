@@ -1,55 +1,48 @@
-import Fluent
 import Foundation
-import Vapor
+import SQLKit
 
-final class ProductName: Model {
-    static let schema = "product_name"
+struct ProductName: Codable {
+    let id: UUID
+    let languageCode: String
+    let name: String
+    let nameLowercase: String
     
-    final class Identifier: Fields, Hashable {
-        
-        @Field(key: .id)
-        var id: UUID?
-        
-        @Field(key: "language_code")
-        var languageCode: String
-        
-        @Parent(key: "id")
-        var product: Product
-        
-        init() {}
-        
-        init(id: UUID?, languageCode: String) {
-            self.id = id
-            self.languageCode = languageCode
-        }
-        
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(id)
-            hasher.combine(languageCode)
-        }
-        
-        static func == (lhs: Identifier, rhs: Identifier) -> Bool {
-            lhs.id == rhs.id && lhs.languageCode == rhs.languageCode
-        }
-    }
-
-    @CompositeID()
-    var id: Identifier?
-
-    @Field(key: "name")
-    var name: String
-
-    @Field(key: "name_lowercase")
-    var nameLowercase: String
-
-    @Parent(key: "id")
-    var product: Product
-
-    init() {}
-
-    init(id: UUID?, languageCode: String, name: String) {
-        self.id = .init(id: id, languageCode: languageCode)
+    init(id: UUID, languageCode: String, name: String) {
+        self.id = id
+        self.languageCode = languageCode
         self.name = name
         self.nameLowercase = name.lowercased()
+    }
+    
+    enum CodingKeys: String, CodingKey, CaseIterable {
+        case id
+        case languageCode = "language_code"
+        case name
+        case nameLowercase = "name_lowercase"
+    }
+
+}
+
+extension ProductName: SQLModel {
+    static let tableName = "product_name"
+    
+    static let columnsLiteral = columns.joined(separator: ", ")
+    static let columns: [String] = CodingKeys.allCases.map(\.rawValue)
+
+    func save(on database: SQLDatabase) async throws {
+        try await database.raw("""
+        INSERT INTO \(raw: Self.tableName) (\(raw: Self.columnsLiteral))
+        VALUES (\(bind: id), \(bind: languageCode), \(bind: name), \(bind: nameLowercase))
+        """).run()
+    }
+    
+    static func queryAll(for id: UUID, using sql: SQLDatabase) async throws -> [ProductName] {
+        let productNameRows = try await sql.raw("""
+            SELECT *
+            FROM "\(raw: ProductName.tableName)"
+            WHERE "id" = \(bind: id)
+            """)
+            .all()
+        return try productNameRows.map { try $0.decode(model: ProductName.self) }
     }
 }

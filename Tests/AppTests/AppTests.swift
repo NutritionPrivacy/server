@@ -1,5 +1,9 @@
 @testable import App
+import SQLKit
+import PostgresKit
+import SQLiteKit
 import XCTVapor
+@testable import FluentPostgresDriver
 
 final class AppTests: XCTestCase {
     private let fullProductJSONId = UUID(uuidString: "88F14A16-364A-4D82-A327-028B18769194")!
@@ -8,10 +12,18 @@ final class AppTests: XCTestCase {
     override func setUp() async throws {
         app = Application(.testing)
         try await configure(app)
+        try await resetDatabase()
     }
     
     override func tearDown() {
         app.shutdown()
+    }
+    
+    /// Resets the database.
+    /// This is needed to run the unit tests in isolation with a Postgres Server.
+    private func resetDatabase() async throws {
+        try await app.autoRevert()
+        try await app.autoMigrate()
     }
     
     // MARK: addProduct
@@ -19,7 +31,7 @@ final class AppTests: XCTestCase {
     func test_addProduct_savesProductToDatabase() async throws {
         // GIVEN
         // no products are in the database yet
-        let initialTotalProducts = try await Product.query(on: app.db).count()
+        let initialTotalProducts = try await Product.queryCount(on: try getSqlDatabase())
         XCTAssertEqual(initialTotalProducts, 0)
         
         // WHEN
@@ -33,13 +45,11 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(res.status, .ok)
             
             // 1 product is now in the database
-            let totalProducts = try await Product.query(on: app.db).count()
+            let totalProducts = try await Product.queryCount(on: try getSqlDatabase())
             XCTAssertEqual(totalProducts, 1)
             
             // the saved product matches the id of the full product JSON.
-            let fetchedProduct =  try await Product.query(on: app.db)
-                .filter(.id, .equal, fullProductJSONId)
-                .first()
+            let fetchedProduct =  try await Product.getProduct(id: fullProductJSONId, database: try getSqlDatabase())
             XCTAssertNotNil(fetchedProduct, "No product for the test id has been saved to the database")
         })
         
@@ -61,7 +71,7 @@ final class AppTests: XCTestCase {
     func test_addProduct_calledTwiceForSameID_failsWith409() async throws {
         // GIVEN
         // no products are in the database yet
-        let initialTotalProducts = try await Product.query(on: app.db).count()
+        let initialTotalProducts = try await Product.queryCount(on: try getSqlDatabase())
         XCTAssertEqual(initialTotalProducts, 0)
         
         // WHEN
@@ -75,7 +85,7 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(res.status, .ok)
             
             // 1 product is now in the database
-            let totalProducts = try await Product.query(on: app.db).count()
+            let totalProducts = try await Product.queryCount(on: try getSqlDatabase())
             XCTAssertEqual(totalProducts, 1)
         })
         
@@ -90,30 +100,52 @@ final class AppTests: XCTestCase {
             XCTAssertEqual(res.status, .conflict)
             
             // and still only 1 product is in the database
-            let totalProducts = try await Product.query(on: app.db).count()
+            let totalProducts = try await Product.queryCount(on: try getSqlDatabase())
             XCTAssertEqual(totalProducts, 1)
         })
     }
+    
+    // MARK: getProductByID
+    
+    func test_getProductById() async throws {
+        // GIVEN
+        // a product exists in the database
+        let product = try await createProductEntry()
+        let productID = try XCTUnwrap(product.id)
         
+        try await TestData.createDummyProductName(id: productID, name: "TestName", languageCode: "en")
+            .save(on: try getSqlDatabase())
+        
+        // WHEN
+        // sending a GET request to the product endpoint with the id of the previously saved product
+        try app.test(.GET, "/product/\(productID)", afterResponse: { response in
+            // THEN
+            // the response status code is 200
+            XCTAssertEqual(response.status, .ok)
+            
+        })
+    }
+    
     // MARK: searchByText
     
     func test_searchByText_prefixName() async throws {
         let id = UUID()
+        let database = try getSqlDatabase()
         try await TestData.createDummyProduct(id: id)
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductNutriments(id: id,
                                                         energy100g: 100,
                                                         proteins100g: 20,
                                                         fat100g: 10,
                                                         carbohydrates100g: 240)
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductName(id: id, name: "TestName1", languageCode: "en-US")
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductName(id: id, name: "TestName2", languageCode: "de-DE")
-            .save(on: app.db)
+            .save(on: database)
         
         // WHEN
         // sending a GET request with the prefix "Te"
@@ -128,21 +160,22 @@ final class AppTests: XCTestCase {
     
     func test_searchByText_infixName() async throws {
         let id = UUID()
+        let database = try getSqlDatabase()
         try await TestData.createDummyProduct(id: id)
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductNutriments(id: id,
                                                         energy100g: 100,
                                                         proteins100g: 20,
                                                         fat100g: 10,
                                                         carbohydrates100g: 240)
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductName(id: id, name: "TestName1", languageCode: "en-US")
-            .save(on: app.db)
+            .save(on: database)
         
         try await TestData.createDummyProductName(id: id, name: "TestName2", languageCode: "de-DE")
-            .save(on: app.db)
+            .save(on: database)
         
         // WHEN
         // sending a GET request with the infix "st"
@@ -158,16 +191,17 @@ final class AppTests: XCTestCase {
     func test_searchByText_limit() async throws {
         // GIVEN
         // 30 Products with 30 localized names each are stored in the database
+        let database = try getSqlDatabase()
         for i in 0..<30 {
             let product = try await createProductEntry()
             let productID = try XCTUnwrap(product.id)
             for j in 0..<30 {
                 try await TestData.createDummyProductName(id: productID, name: "TestName\(j)", languageCode: "\(j)")
-                    .save(on: app.db)
+                    .save(on: database)
             }
         }
         
-        let savedProducts = try await Product.query(on: app.db).count()
+        let savedProducts = try await Product.queryCount(on: database)
         XCTAssertEqual(savedProducts, 30)
         
         // WHEN
@@ -195,17 +229,21 @@ final class AppTests: XCTestCase {
     
     private func createProductEntry() async throws -> Product {
         let id = UUID()
+        let database = try getSqlDatabase()
         let product = TestData.createDummyProduct(id: id)
-        try await product
-            .save(on: app.db)
+        try await product.save(on: database)
         
-        try await TestData.createDummyProductNutriments(id: id,
+        let nutriments = TestData.createDummyProductNutriments(id: id,
                                                         energy100g: 100,
                                                         proteins100g: 20,
                                                         fat100g: 10,
                                                         carbohydrates100g: 240)
-        .save(on: app.db)
+        try await nutriments.save(on: database)
         return product
+    }
+    
+    private func getSqlDatabase() throws -> SQLDatabase {
+        return try XCTUnwrap(app.db as? SQLDatabase)
     }
 }
 
@@ -254,3 +292,32 @@ extension Collection {
         return indices.contains(index) ? self[index] : nil
     }
 }
+
+extension Product {
+    static func queryCount(on database: SQLDatabase) async throws -> Int {
+        let columnName: String
+        if database is PostgresDatabase {
+            columnName = "count"
+        } else if database is SQLiteDatabase {
+            columnName = "COUNT(*)"
+        } else {
+            XCTFail("Unsupported Database type")
+            throw TestError()
+        }
+        return try await database.raw("SELECT COUNT(*) FROM \(raw: Self.tableName)")
+            .first()
+            .unwrap()
+            .decode(column: columnName, as: Int.self)
+    }
+    
+    static func getProduct(id: UUID, database sql: SQLDatabase) async throws -> Product? {
+        try await sql.raw("""
+            SELECT *
+            FROM \(raw: Self.tableName)
+            WHERE "id" = \(bind: id)
+            """)
+        .first()?.decodeToSQLModel(Product.self, usePrefix: false)
+    }
+}
+
+struct TestError: Error {}

@@ -1,52 +1,40 @@
-import Fluent
 import Foundation
-import Vapor
+import SQLKit
 
-final class ProductServing: Model {
-    static let schema = "product_serving"
-
-    final class Identifier: Fields, Hashable {
-        
-        @Field(key: .id)
-        var id: UUID?
-        
-        @Field(key: "name")
-        var name: String
-        
-        init() {}
-        
-        init(id: UUID?, name: String) {
-            self.id = id
-            self.name = name
-        }
-        
-        func hash(into hasher: inout Hasher) {
-            hasher.combine(id)
-            hasher.combine(name)
-        }
-        
-        static func == (lhs: Identifier, rhs: Identifier) -> Bool {
-            lhs.id == rhs.id && lhs.name == rhs.name
-        }
+struct ProductServing: Codable {
+    let id: UUID
+    let name: String
+    let quantityUnit: QuantityUnit
+    let quantityValue: Int
+    
+    enum CodingKeys: String, CodingKey, CaseIterable {
+        case id
+        case name
+        case quantityUnit = "quantity_unit"
+        case quantityValue = "quantity_value"
     }
+}
 
-    @CompositeID()
-    var id: Identifier?
+extension ProductServing: SQLModel {
+    static let tableName = "product_serving"
 
-    @Field(key: "quantity_unit")
-    var quantityUnit: QuantityUnit
-
-    @Field(key: "quantity_value")
-    var quantityValue: Int
-
-    @Parent(key: "id")
-    var product: Product
-
-    init() {}
-
-    init(id: UUID?, name: String, quantityUnit: QuantityUnit, quantityValue: Int) {
-        self.id = .init(id: id, name: name)
-        self.quantityUnit = quantityUnit
-        self.quantityValue = quantityValue
+    static let columns: [String] = CodingKeys.allCases.map(\.rawValue)
+    static let columnsLiteral = columns.joined(separator: ", ")
+    
+    func insert(into sql: SQLDatabase) async throws {
+        try await sql.raw("""
+        INSERT INTO \(raw: Self.tableName) (\(raw: ProductServing.columnsLiteral))
+        VALUES (\(bind: id), \(bind: name), \(bind: quantityUnit.rawValue), \(bind: quantityValue))
+        """).run()
+    }
+    
+    static func queryAll(for id: UUID, using sql: SQLDatabase) async throws -> [ProductServing] {
+        let rows = try await sql.raw("""
+            SELECT *
+            FROM "\(raw: ProductServing.tableName)"
+            WHERE "id" = \(bind: id)
+            """)
+            .all()
+        return try rows.map { try $0.decode(model: ProductServing.self) }
     }
 }

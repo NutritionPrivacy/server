@@ -5,7 +5,7 @@ extension TestData {
 //    static func createDummyProduct(id: UUID?, name: [String: String] = ["en": "TestName"], brand: [String: String]? = ["en": "TestBrand"]) -> Product {
 //        Product(id: id, barcode: nil, quantityUnit: .g, quantityValue: 100, source: "TestSource", verified: true)
 //    }
-    static func createDummyProduct(id: UUID?, barcode: Int? = nil, quantityUnit: QuantityUnit = .g, quantityValue: Int = 100, source: String = "NutritionPrivacy", verified: Bool = true) -> Product {
+    static func createDummyProduct(id: UUID, barcode: Int? = nil, quantityUnit: QuantityUnit = .g, quantityValue: Int = 100, source: String = "NutritionPrivacy", verified: Bool = true) -> Product {
         Product(id: id, barcode: barcode, quantityUnit: quantityUnit, quantityValue: quantityValue, source: source, verified: verified)
     }
     
@@ -107,99 +107,96 @@ extension TestData {
             caffeine100g: Double? = nil,
             taurine100g: Double? = nil
         ) -> ProductNutriments {
-            let nutriments = ProductNutriments()
-            nutriments.id = id
-            nutriments.energy100g = energy100g
-            nutriments.proteins100g = proteins100g
-            nutriments.fat100g = fat100g
-            nutriments.carbohydrates100g = carbohydrates100g
-           
-            // Optional fields
-            nutriments.betaCarotene100g = betaCarotene100g
-            nutriments.salt100g = salt100g
-            nutriments.casein100g = casein100g
-            nutriments.serumProteins100g = serumProteins100g
-            nutriments.nucleotides100g = nucleotides100g
-            nutriments.sugars100g = sugars100g
-            nutriments.sucrose100g = sucrose100g
-            nutriments.glucose100g = glucose100g
-            nutriments.fructose100g = fructose100g
-            nutriments.lactose100g = lactose100g
-            nutriments.maltose100g = maltose100g
-            nutriments.maltodextrins100g = maltodextrins100g
-            nutriments.starch100g = starch100g
-            nutriments.polyols100g = polyols100g
-            nutriments.saturatedFat100g = saturatedFat100g
-            nutriments.butyricAcid100g = butyricAcid100g
-            nutriments.caproicAcid100g = caproicAcid100g
-            nutriments.caprylicAcid100g = caprylicAcid100g
-            nutriments.capricAcid100g = capricAcid100g
-            nutriments.lauricAcid100g = lauricAcid100g
-            nutriments.myristicAcid100g = myristicAcid100g
-            nutriments.palmiticAcid100g = palmiticAcid100g
-            nutriments.stearicAcid100g = stearicAcid100g
-            nutriments.arachidicAcid100g = arachidicAcid100g
-            nutriments.behenicAcid100g = behenicAcid100g
-            nutriments.lignocericAcid100g = lignocericAcid100g
-            nutriments.ceroticAcid100g = ceroticAcid100g
-            nutriments.montanicAcid100g = montanicAcid100g
-            nutriments.melissicAcid100g = melissicAcid100g
-            nutriments.monounsaturatedFat100g = monounsaturatedFat100g
-            nutriments.polyunsaturatedFat100g = polyunsaturatedFat100g
-            nutriments.omega3Fat100g = omega3Fat100g
-            nutriments.alphaLinolenicAcid100g = alphaLinolenicAcid100g
-            nutriments.eicosapentaenoicAcid100g = eicosapentaenoicAcid100g
-            nutriments.docosahexaenoicAcid100g = docosahexaenoicAcid100g
-            nutriments.omega6Fat100g = omega6Fat100g
-            nutriments.linoleicAcid100g = linoleicAcid100g
-            nutriments.arachidonicAcid100g = arachidonicAcid100g
-            nutriments.gammaLinolenicAcid100g = gammaLinolenicAcid100g
-            nutriments.dihomoGammaLinolenicAcid100g = dihomoGammaLinolenicAcid100g
-            nutriments.omega9Fat100g = omega9Fat100g
-            nutriments.oleicAcid100g = oleicAcid100g
-            nutriments.elaidicAcid100g = elaidicAcid100g
-            nutriments.gondoicAcid100g = gondoicAcid100g
-            nutriments.meadAcid100g = meadAcid100g
-            nutriments.erucicAcid100g = erucicAcid100g
-            nutriments.nervonicAcid100g = nervonicAcid100g
-            nutriments.transFat100g = transFat100g
-            nutriments.cholesterol100g = cholesterol100g
-            nutriments.fiber100g = fiber100g
-            nutriments.sodium100g = sodium100g
-            nutriments.alcohol100g = alcohol100g
-            nutriments.vitaminA100g = vitaminA100g
-            nutriments.vitaminD100g = vitaminD100g
-            nutriments.vitaminE100g = vitaminE100g
-            nutriments.vitaminK100g = vitaminK100g
-            nutriments.vitaminC100g = vitaminC100g
-            nutriments.vitaminB1100g = vitaminB1100g
-            nutriments.vitaminB2100g = vitaminB2100g
-            nutriments.vitaminPp100g = vitaminPp100g
-            nutriments.vitaminB6100g = vitaminB6100g
-            nutriments.vitaminB9100g = vitaminB9100g
-            nutriments.vitaminB12100g = vitaminB12100g
-            nutriments.biotin100g = biotin100g
-            nutriments.pantothenicAcid100g = pantothenicAcid100g
-            nutriments.silica100g = silica100g
-            nutriments.bicarbonate100g = bicarbonate100g
-            nutriments.potassium100g = potassium100g
-            nutriments.chloride100g = chloride100g
-            nutriments.calcium100g = calcium100g
-            nutriments.phosphorus100g = phosphorus100g
-            nutriments.iron100g = iron100g
-            nutriments.magnesium100g = magnesium100g
-            nutriments.zinc100g = zinc100g
-            nutriments.copper100g = copper100g
-            nutriments.manganese100g = manganese100g
-            nutriments.fluoride100g = fluoride100g
-            nutriments.selenium100g = selenium100g
-            nutriments.chromium100g = chromium100g
-            nutriments.molybdenum100g = molybdenum100g
-            nutriments.iodine100g = iodine100g
-            nutriments.caffeine100g = caffeine100g
-            nutriments.taurine100g = taurine100g
-
-            return nutriments
+            return ProductNutriments(
+                       id: id,
+                       energy100g: energy100g,
+                       proteins100g: proteins100g,
+                       fat100g: fat100g,
+                       carbohydrates100g: carbohydrates100g,
+                       betaCarotene100g: betaCarotene100g,
+                       salt100g: salt100g,
+                       casein100g: casein100g,
+                       serumProteins100g: serumProteins100g,
+                       nucleotides100g: nucleotides100g,
+                       sugars100g: sugars100g,
+                       sucrose100g: sucrose100g,
+                       glucose100g: glucose100g,
+                       fructose100g: fructose100g,
+                       lactose100g: lactose100g,
+                       maltose100g: maltose100g,
+                       maltodextrins100g: maltodextrins100g,
+                       starch100g: starch100g,
+                       polyols100g: polyols100g,
+                       saturatedFat100g: saturatedFat100g,
+                       butyricAcid100g: butyricAcid100g,
+                       caproicAcid100g: caproicAcid100g,
+                       caprylicAcid100g: caprylicAcid100g,
+                       capricAcid100g: capricAcid100g,
+                       lauricAcid100g: lauricAcid100g,
+                       myristicAcid100g: myristicAcid100g,
+                       palmiticAcid100g: palmiticAcid100g,
+                       stearicAcid100g: stearicAcid100g,
+                       arachidicAcid100g: arachidicAcid100g,
+                       behenicAcid100g: behenicAcid100g,
+                       lignocericAcid100g: lignocericAcid100g,
+                       ceroticAcid100g: ceroticAcid100g,
+                       montanicAcid100g: montanicAcid100g,
+                       melissicAcid100g: melissicAcid100g,
+                       monounsaturatedFat100g: monounsaturatedFat100g,
+                       polyunsaturatedFat100g: polyunsaturatedFat100g,
+                       omega3Fat100g: omega3Fat100g,
+                       alphaLinolenicAcid100g: alphaLinolenicAcid100g,
+                       eicosapentaenoicAcid100g: eicosapentaenoicAcid100g,
+                       docosahexaenoicAcid100g: docosahexaenoicAcid100g,
+                       omega6Fat100g: omega6Fat100g,
+                       linoleicAcid100g: linoleicAcid100g,
+                       arachidonicAcid100g: arachidonicAcid100g,
+                       gammaLinolenicAcid100g: gammaLinolenicAcid100g,
+                       dihomoGammaLinolenicAcid100g: dihomoGammaLinolenicAcid100g,
+                       omega9Fat100g: omega9Fat100g,
+                       oleicAcid100g: oleicAcid100g,
+                       elaidicAcid100g: elaidicAcid100g,
+                       gondoicAcid100g: gondoicAcid100g,
+                       meadAcid100g: meadAcid100g,
+                       erucicAcid100g: erucicAcid100g,
+                       nervonicAcid100g: nervonicAcid100g,
+                       transFat100g: transFat100g,
+                       cholesterol100g: cholesterol100g,
+                       fiber100g: fiber100g,
+                       sodium100g: sodium100g,
+                       alcohol100g: alcohol100g,
+                       vitaminA100g: vitaminA100g,
+                       vitaminD100g: vitaminD100g,
+                       vitaminE100g: vitaminE100g,
+                       vitaminK100g: vitaminK100g,
+                       vitaminC100g: vitaminC100g,
+                       vitaminB1100g: vitaminB1100g,
+                       vitaminB2100g: vitaminB2100g,
+                       vitaminPp100g: vitaminPp100g,
+                       vitaminB6100g: vitaminB6100g,
+                       vitaminB9100g: vitaminB9100g,
+                       vitaminB12100g: vitaminB12100g,
+                       biotin100g: biotin100g,
+                       pantothenicAcid100g: pantothenicAcid100g,
+                       silica100g: silica100g,
+                       bicarbonate100g: bicarbonate100g,
+                       potassium100g: potassium100g,
+                       chloride100g: chloride100g,
+                       calcium100g: calcium100g,
+                       phosphorus100g: phosphorus100g,
+                       iron100g: iron100g,
+                       magnesium100g: magnesium100g,
+                       zinc100g: zinc100g,
+                       copper100g: copper100g,
+                       manganese100g: manganese100g,
+                       fluoride100g: fluoride100g,
+                       selenium100g: selenium100g,
+                       chromium100g: chromium100g,
+                       molybdenum100g: molybdenum100g,
+                       iodine100g: iodine100g,
+                       caffeine100g: caffeine100g,
+                       taurine100g: taurine100g
+           )
         }
 
 }

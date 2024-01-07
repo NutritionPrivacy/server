@@ -2,25 +2,20 @@ import Foundation
 
 enum ProductMappingHelperError: Error {
     case invalidUUID
-    case missingProductNutriments
 }
 
-enum ProductMappingHelper {
-    static let source = "NutritionPrivacy"
-    
-    static func convertToDto(_ product: Product) throws -> Components.Schemas.Product {
-        guard let nutriments = product.nutriments else {
-            throw ProductMappingHelperError.missingProductNutriments
-        }
-        return Components.Schemas.Product(id: product.id?.uuidString ?? "N/A",
-                                   barcode: product.barcode,
-                                   names: getLocalizedNames(for: product),
-                                   brands: getLocalizedBrands(for: product),
-                                   servings: getServings(from: product),
-                                   totalQuantity: getQuantity(from: product),
-                                   nutriments: .init(from: nutriments),
-                                   verified: product.verified,
-                                   source: source)
+enum ProductMappingHelper {    
+    static func convertToDto(_ info: ProductInfo) throws -> Components.Schemas.Product {
+        let product = info.product
+        return Components.Schemas.Product(id: product.id.uuidString,
+                                          barcode: product.barcode,
+                                          names: getLocalizedNames(for: info),
+                                          brands: getLocalizedBrands(for: info),
+                                          servings: getServings(from: info),
+                                          totalQuantity: getQuantity(from: product),
+                                          nutriments: .init(from: info.productNutriments),
+                                          verified: product.verified,
+                                          source: product.source)
     }
     
     static func convertFromDto(_ dto: Components.Schemas.Product) throws -> Product {
@@ -36,16 +31,12 @@ enum ProductMappingHelper {
         )
     }
     
-    private static func getLocalizedNames(for product: Product) -> [Components.Schemas.LocalizedValue] {
-        assert(product.$productNames.value != nil)
-        
-        return product.productNames.map { .init(value: $0.name, languageCode: $0.id?.languageCode) }
+    private static func getLocalizedNames(for info: ProductInfo) -> [Components.Schemas.LocalizedValue] {
+        return info.productNames.map { .init(value: $0.name, languageCode: $0.languageCode) }
     }
     
-    private static func getLocalizedBrands(for product: Product) -> [Components.Schemas.LocalizedValue] {
-        assert(product.$productBrands.value != nil)
-        
-        return product.productBrands.map { .init(value: $0.brand, languageCode: $0.id?.languageCode) }
+    private static func getLocalizedBrands(for info: ProductInfo) -> [Components.Schemas.LocalizedValue] {
+        return info.productBrands.map { .init(value: $0.brand, languageCode: $0.languageCode) }
     }
     
     private static func getQuantity(from product: Product) -> Components.Schemas.Quantity {
@@ -53,9 +44,8 @@ enum ProductMappingHelper {
                                     value: Int64(product.quantityValue))
     }
     
-    private static func getServings(from product: Product) -> [Components.Schemas.Serving] {
-        assert(product.$productServings.value != nil)
-        return product.productServings.compactMap { .init(from: $0) }
+    private static func getServings(from info: ProductInfo) -> [Components.Schemas.Serving] {
+        return info.productServings.compactMap { .init(from: $0) }
     }
 }
 
@@ -98,8 +88,9 @@ private extension Components.Schemas.Quantity.unitPayload {
 }
 
 extension ProductNutriments {
-    convenience init(from nutriments: Components.Schemas.Nutriments) {
+    init(from nutriments: Components.Schemas.Nutriments, id: UUID) {
         self.init(
+            id: id,
             energy100g: nutriments.energy,
             proteins100g: nutriments.proteins,
             fat100g: nutriments.fats,
@@ -298,18 +289,20 @@ extension Components.Schemas.Nutriments {
 }
 
 extension ProductName {
-    convenience init?(from dto: Components.Schemas.LocalizedValue, id: UUID?) {
+    init?(from dto: Components.Schemas.LocalizedValue, id: UUID) {
         guard let languageCode = dto.languageCode, let value = dto.value else {
             return nil
         }
-        self.init(id: id,
-                  languageCode: languageCode,
-                  name: value)
+        self.init(
+            id: id,
+            languageCode: languageCode,
+            name: value
+        )
     }
 }
 
 extension ProductBrand {
-    convenience init?(from dto: Components.Schemas.LocalizedValue, id: UUID?) {
+    init?(from dto: Components.Schemas.LocalizedValue, id: UUID) {
         guard let languageCode = dto.languageCode, let value = dto.value else {
             return nil
         }
@@ -321,8 +314,7 @@ extension ProductBrand {
 
 extension Components.Schemas.Serving {
     init?(from serving: ProductServing) {
-        guard let id = serving.id else { return nil }
-        guard let name = Components.Schemas.Serving.namePayload(rawValue: id.name) else { return nil }
+        guard let name = Components.Schemas.Serving.namePayload(rawValue: serving.name) else { return nil }
         self.init(name: name,
                   underlyingQuantity: .init(unit: serving.quantityUnit.dto,
                                             value: Int64(serving.quantityValue)))
@@ -330,7 +322,7 @@ extension Components.Schemas.Serving {
 }
 
 extension ProductServing {
-    convenience init(from dto: Components.Schemas.Serving, id: UUID?) {
+    init(from dto: Components.Schemas.Serving, id: UUID) {
         self.init(id: id, name: dto.name.rawValue, quantityUnit: dto.underlyingQuantity.unit.unit, quantityValue: Int(dto.underlyingQuantity.value))
     }
 }

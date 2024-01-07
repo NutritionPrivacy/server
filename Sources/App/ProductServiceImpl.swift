@@ -3,11 +3,16 @@ import PostgresNIO
 import FluentKit
 import FluentSQL
 import Vapor
+import SQLiteNIO
+import PostgresKit
 
 struct ProductServiceImpl: APIProtocol {
     
     let logger: Logger
     let databaseProvider: Databases
+    
+    private let productColumns = Product.prefixedColumnsLiteral()
+    private let nutrimentsColumns = ProductNutriments.prefixedColumnsLiteral()
     
     private enum Constants {
         static var pageSize: Int { 20 }
@@ -17,27 +22,49 @@ struct ProductServiceImpl: APIProtocol {
         databaseProvider.database(logger: logger, on: databaseProvider.eventLoopGroup.any())
     }
     
+    private var sqlDatabase: SQLDatabase? {
+        if let database = database as? PostgresDatabase {
+            return database.sql()
+        }
+        if let database = database as? SQLiteDatabase {
+            return database.sql()
+        }
+        return nil
+    }
+    
     func getProductByID(_ input: Operations.getProductByID.Input) async throws -> Operations.getProductByID.Output {
         guard let id = UUID(uuidString: input.path.productID) else {
             logger.log(level: .critical, .init(stringLiteral: "Invalid UUID"))
             return .badRequest(.init())
         }
-        guard let database else {
-            throw Abort(.internalServerError, reason: "Missing database.")
+        guard let sqlDatabase else {
+            throw Abort(.internalServerError, reason: "Database not supported.")
         }
-        
-        let fetchedProduct = try await Product.query(on: database)
-            .with(\.$productNames)
-            .with(\.$productBrands)
-            .with(\.$nutriments)
-            .with(\.$productServings)
-            .filter(\.$id == id)
-            .first()
-        if let fetchedProduct {
-            return .ok(.init(body: .json(try ProductMappingHelper.convertToDto(fetchedProduct))))
-        } else {
+                
+        guard let row = try await sqlDatabase.raw("""
+                SELECT \(raw: productColumns), \(raw: nutrimentsColumns)
+                FROM "\(raw: Product.tableName)"
+                JOIN "\(raw: ProductNutriments.tableName)" ON "\(raw: Product.tableName)"."id" = "\(raw: ProductNutriments.tableName)"."id"
+                JOIN "\(raw: ProductName.tableName)" ON "\(raw: Product.tableName)"."id" = "\(raw: ProductName.tableName)"."id"
+                WHERE "\(raw: Product.tableName)"."id" = \(bind: id)
+                """)
+            .first() else {
             return .notFound(.init())
         }
+        
+        let product = try row.decodeToSQLModel(Product.self, usePrefix: true)
+        let nutriments = try row.decodeToSQLModel(ProductNutriments.self, usePrefix: true)
+        
+        let productNames = try await ProductName.queryAll(for: product.id, using: sqlDatabase)
+        let productBrands = try await ProductBrand.queryAll(for: product.id, using: sqlDatabase)
+        let productServings = try await ProductServing.queryAll(for: product.id, using: sqlDatabase)
+        
+        let info = ProductInfo(product: product,
+            productNutriments: nutriments,
+            productNames: productNames,
+            productBrands: productBrands,
+            productServings: productServings)
+        return .ok(.init(body: .json(try ProductMappingHelper.convertToDto(info))))
     }
     
     func addProduct(_ input: Operations.addProduct.Input) async throws -> Operations.addProduct.Output {
@@ -77,33 +104,37 @@ struct ProductServiceImpl: APIProtocol {
         guard database.inTransaction else {
             throw Abort(.internalServerError, reason: "Called addProductTransaction but the passed database is not in transaction")
         }
+        guard let sqlDatabase else {
+            throw Abort(.internalServerError, reason: "Database not supported.")
+        }
         let product = try ProductMappingHelper.convertFromDto(productDto)
         do {
-            try await product.save(on: database)
+            try await product.save(on: sqlDatabase)
         } catch let error as DatabaseError where error.isConstraintFailure {
             throw Abort(.conflict)
+        } catch {
+            fatalError(String(reflecting: error))
         }
         
-        let nutriments = ProductNutriments(from: productDto.nutriments)
-        nutriments.id = product.id
-        try await nutriments.save(on: database)
-        
+        let nutriments = ProductNutriments(from: productDto.nutriments, id: product.id)
+        try await nutriments.save(on: sqlDatabase)
+
         let productNames: [ProductName] = productDto.names.compactMap { .init(from: $0, id: product.id) }
         for productName in productNames {
-            try await productName.save(on: database)
+            try await productName.save(on: sqlDatabase)
         }
         
         if let productDtoBrands = productDto.brands {
             let productBrands: [ProductBrand] = productDtoBrands.compactMap { .init(from: $0, id: product.id) }
             for productBrand in productBrands {
-                try await productBrand.save(on: database)
+                try await productBrand.insert(into: sqlDatabase)
             }
         }
         
         if let productDtoServings = productDto.servings {
             let productServings: [ProductServing] = productDtoServings.map { .init(from: $0, id: product.id) }
             for productServing in productServings {
-                try await productServing.save(on: database)
+                try await productServing.insert(into: sqlDatabase)
             }
         }
     }
@@ -112,7 +143,7 @@ struct ProductServiceImpl: APIProtocol {
     ///
     /// All the needed relations of the `Product` model are already lazy loaded.
     /// - Warning: As of Vapor Fluent 4.8.0 it's not possible to perform a `GROUP BY` which is needed for this query as we otherwise end up with duplicates or the limit breaks if we filter them out. Therefore, we rely for this on a raw SQL query for now.
-    private func productSearch(_ searchText: String, page: Int) async throws -> [Product] {
+    private func productSearch(_ searchText: String, page: Int) async throws -> [ProductInfo] {
         guard let database, let sql = database as? SQLDatabase else {
             throw Abort(.internalServerError, reason: "Database not supported.")
         }
@@ -122,24 +153,51 @@ struct ProductServiceImpl: APIProtocol {
         let offset = page * Constants.pageSize
         
         let rawQuery = SQLQueryString("""
-            SELECT \(raw: Product.schema).*
-            FROM \(raw: Product.schema)
-            INNER JOIN \(raw: ProductName.schema) ON \(raw: Product.schema).id = \(raw: ProductName.schema).id
-            LEFT JOIN \(raw: ProductBrand.schema) ON \(raw: Product.schema).id = \(raw: ProductBrand.schema).id
-            WHERE \(raw: ProductName.schema).name_lowercase LIKE \(bind: searchTextPattern)
-            OR \(raw: ProductBrand.schema).brand_lowercase LIKE \(bind: searchTextPattern)
-            GROUP BY \(raw: Product.schema).id
+            SELECT \(raw: productColumns), \(raw: nutrimentsColumns)
+            FROM \(raw: Product.tableName)
+            JOIN "\(raw: ProductNutriments.tableName)" ON "\(raw: Product.tableName)"."id" = "\(raw: ProductNutriments.tableName)"."id"
+            INNER JOIN \(raw: ProductName.tableName) ON \(raw: Product.tableName).id = \(raw: ProductName.tableName).id
+            LEFT JOIN \(raw: ProductBrand.tableName) ON \(raw: Product.tableName).id = \(raw: ProductBrand.tableName).id
+            WHERE \(raw: ProductName.tableName).name_lowercase LIKE \(bind: searchTextPattern)
+            OR \(raw: ProductBrand.tableName).brand_lowercase LIKE \(bind: searchTextPattern)
+            GROUP BY \(raw: Product.tableName).id, \(raw: ProductNutriments.tableName).id
             LIMIT \(bind: limit) OFFSET \(bind: offset)
             """)
         
-        let products = try await sql.raw(rawQuery)
-            .all(decoding: Product.self)
-        for product in products {
-            _ = try await product.$productNames.get(on: database)
-            _ = try await product.$nutriments.get(on: database)
-            _ = try await product.$productBrands.get(on: database)
-            _ = try await product.$productServings.get(on: database)
+        let productRows = try await sql.raw(rawQuery).all()
+        
+        let productInfos = try await productRows.asyncMap { row in
+            let product = try row.decodeToSQLModel(Product.self, usePrefix: true)
+            let nutriments = try row.decodeToSQLModel(ProductNutriments.self, usePrefix: true)
+            let productNames = try await ProductName.queryAll(for: product.id, using: sql)
+            let productBrands = try await ProductBrand.queryAll(for: product.id, using: sql)
+            let productServings = try await ProductServing.queryAll(for: product.id, using: sql)
+            return ProductInfo(product: product,
+                               productNutriments: nutriments,
+                               productNames: productNames,
+                               productBrands: productBrands,
+                               productServings: productServings)
         }
-        return products
+        return productInfos
+    }
+}
+
+extension Sequence {
+    func asyncMap<T>(
+        _ transform: (Element) async throws -> T
+    ) async rethrows -> [T] {
+        var values = [T]()
+
+        for element in self {
+            try await values.append(transform(element))
+        }
+
+        return values
+    }
+}
+
+extension SQLRow {
+    func decodeToSQLModel<D: SQLModel & Decodable>(_ type: D.Type, usePrefix: Bool) throws -> D {
+        try decode(model: type, prefix: usePrefix ? "\(type.tableName)_" : nil, keyDecodingStrategy: .useDefaultKeys)
     }
 }
