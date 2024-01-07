@@ -13,8 +13,27 @@ on:
 
 
 jobs:
-  build:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: vapor_database        
+          POSTGRES_PASSWORD: vapor_password
+          POSTGRES_USER: vapor_username
+        ports:
+          - 5432:5432
+    steps:
+      - uses: swift-actions/setup-swift@v1
+      - uses: actions/checkout@v4
+      - name: Build
+        run: swift build
+      - name: Run tests
+        run: swift test
 
+  deploy:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
       contents: read
