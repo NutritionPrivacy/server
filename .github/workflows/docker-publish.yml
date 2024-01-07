@@ -26,7 +26,10 @@ jobs:
           - 5432:5432
     steps:
       - uses: swift-actions/setup-swift@v1
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: true
       - name: Build
         run: swift build
       - name: Run tests
