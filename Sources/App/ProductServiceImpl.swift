@@ -95,15 +95,15 @@ struct ProductServiceImpl: APIProtocol {
     }
     
     private func addProduct(_ productDto: Components.Schemas.Product, database: Database) async throws {
-        try await database.transaction { database in
+//        try await database.transaction { database in
             try await addProductTransaction(productDto, database: database)
-        }
+//        }
     }
     
     private func addProductTransaction(_ productDto: Components.Schemas.Product, database: Database) async throws {
-        guard database.inTransaction else {
-            throw Abort(.internalServerError, reason: "Called addProductTransaction but the passed database is not in transaction")
-        }
+//        guard database.inTransaction else {
+//            throw Abort(.internalServerError, reason: "Called addProductTransaction but the passed database is not in transaction")
+//        }
         guard let sqlDatabase else {
             throw Abort(.internalServerError, reason: "Database not supported.")
         }
