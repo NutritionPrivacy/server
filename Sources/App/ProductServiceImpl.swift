@@ -95,16 +95,16 @@ struct ProductServiceImpl: APIProtocol {
     }
     
     private func addProduct(_ productDto: Components.Schemas.Product, database: Database) async throws {
-//        try await database.transaction { database in
+        try await database.transaction { database in
             try await addProductTransaction(productDto, database: database)
-//        }
+        }
     }
     
     private func addProductTransaction(_ productDto: Components.Schemas.Product, database: Database) async throws {
-//        guard database.inTransaction else {
-//            throw Abort(.internalServerError, reason: "Called addProductTransaction but the passed database is not in transaction")
-//        }
-        guard let sqlDatabase else {
+        guard database.inTransaction else {
+            throw Abort(.internalServerError, reason: "Called addProductTransaction but the passed database is not in transaction")
+        }
+        guard let sqlDatabase = database as? SQLDatabase else {
             throw Abort(.internalServerError, reason: "Database not supported.")
         }
         let product = try ProductMappingHelper.convertFromDto(productDto)
@@ -142,10 +142,23 @@ struct ProductServiceImpl: APIProtocol {
     /// All the needed relations of the `Product` model are already lazy loaded.
     /// - Warning: As of Vapor Fluent 4.8.0 it's not possible to perform a `GROUP BY` which is needed for this query as we otherwise end up with duplicates or the limit breaks if we filter them out. Therefore, we rely for this on a raw SQL query for now.
     private func productSearch(_ searchText: String, page: Int) async throws -> [ProductInfo] {
-        guard let database, let sql = database as? SQLDatabase else {
+        guard let database else {
             throw Abort(.internalServerError, reason: "Database not supported.")
         }
 
+        return try await database.transaction { database in
+            try await productSearchTransaction(searchText, page: page, database: database)
+        }
+    }
+    
+    private func productSearchTransaction(_ searchText: String, page: Int, database: Database) async throws -> [ProductInfo] {
+        guard database.inTransaction else {
+            throw Abort(.internalServerError, reason: "Called productSearchTransaction but the passed database is not in transaction")
+        }
+        guard let sql = database as? SQLDatabase else {
+            throw Abort(.internalServerError, reason: "Database not supported.")
+        }
+        
         let searchTextPattern = "%" + searchText.lowercased() + "%"
         let limit = Constants.pageSize
         let offset = page * Constants.pageSize
