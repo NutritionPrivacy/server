@@ -12,14 +12,12 @@ public func configure(_ app: Application) async throws {
     //  if app.environment == .testing {
     //    app.databases.use(.sqlite(.memory), as: .sqlite)
     //  } else {
-    let message = Environment.get("DATABASE_HOST") ?? "ENV[DATABASE_HOST] not found!"
-    app.logger.debug(.init(stringLiteral: message))
     app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
-        hostname: Environment.get("DATABASE_HOST") ?? "localhost",
+        hostname: Environment.get("DATABASE_HOST")!,
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
-        username: Environment.get("DATABASE_USERNAME") ?? "vapor_username",
-        password: Environment.get("DATABASE_PASSWORD") ?? "vapor_password",
-        database: Environment.get("DATABASE_NAME") ?? "vapor_database",
+        username: Environment.get("DATABASE_USERNAME")!,
+        password: Environment.get("DATABASE_PASSWORD")!,
+        database: Environment.get("DATABASE_NAME")!,
         tls: .prefer(try .init(configuration: .clientDefault)))
     ), as: .psql)
 
