@@ -112,8 +112,6 @@ struct ProductServiceImpl: APIProtocol {
             try await product.save(on: sqlDatabase)
         } catch let error as DatabaseError where error.isConstraintFailure {
             throw Abort(.conflict)
-        } catch {
-            fatalError(String(reflecting: error))
         }
         
         let nutriments = ProductNutriments(from: productDto.nutriments, id: product.id)
