@@ -12,6 +12,8 @@ public func configure(_ app: Application) async throws {
     //  if app.environment == .testing {
     //    app.databases.use(.sqlite(.memory), as: .sqlite)
     //  } else {
+    let message = Environment.get("DATABASE_HOST") ?? "ENV[DATABASE_HOST] not found!"
+    app.logger.debug(.init(stringLiteral: message))
     app.databases.use(DatabaseConfigurationFactory.postgres(configuration: .init(
         hostname: Environment.get("DATABASE_HOST") ?? "localhost",
         port: Environment.get("DATABASE_PORT").flatMap(Int.init(_:)) ?? SQLPostgresConfiguration.ianaPortNumber,
