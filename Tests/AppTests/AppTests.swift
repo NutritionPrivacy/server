@@ -192,7 +192,7 @@ final class AppTests: XCTestCase {
         // GIVEN
         // 30 Products with 30 localized names each are stored in the database
         let database = try getSqlDatabase()
-        for i in 0..<30 {
+        for _ in 0..<30 {
             let product = try await createProductEntry()
             let productID = try XCTUnwrap(product.id)
             for j in 0..<30 {
