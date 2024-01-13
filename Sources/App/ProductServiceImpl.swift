@@ -94,12 +94,12 @@ struct ProductServiceImpl: APIProtocol {
         return .ok(.init(body: .json(.init(page: page, array: products))))
     }
     
-    func exportProductPreviews() async throws -> [Components.Schemas.ProductPreview] {
+    func exportProductPreviews(languageCode: String) async throws -> [Components.Schemas.ProductPreview] {
         guard let database else {
             throw Abort(.internalServerError, reason: "Missing database.")
         }
         return try await database.transaction {
-            try await exportPreviewsTransaction(database: $0)
+            try await exportPreviewsTransaction(database: $0, languageCode: languageCode)
         }
     }
     
@@ -201,7 +201,7 @@ struct ProductServiceImpl: APIProtocol {
         return productInfos
     }
     
-    private func exportPreviewsTransaction(database: Database) async throws -> [Components.Schemas.ProductPreview] {
+    private func exportPreviewsTransaction(database: Database, languageCode: String) async throws -> [Components.Schemas.ProductPreview] {
         guard database.inTransaction else {
             throw Abort(.internalServerError, reason: "Called exportPreviewsTransaction but the passed database is not in transaction")
         }
@@ -213,6 +213,10 @@ struct ProductServiceImpl: APIProtocol {
             SELECT \(raw: productColumns), \(raw: nutrimentsColumns)
             FROM \(raw: Product.tableName)
             JOIN "\(raw: ProductNutriments.tableName)" ON "\(raw: Product.tableName)"."id" = "\(raw: ProductNutriments.tableName)"."id"
+            INNER JOIN \(raw: ProductName.tableName) ON \(raw: Product.tableName).id = \(raw: ProductName.tableName).id
+            LEFT JOIN \(raw: ProductBrand.tableName) ON \(raw: Product.tableName).id = \(raw: ProductBrand.tableName).id
+            WHERE \(raw: ProductName.tableName).language_code LIKE \(bind: languageCode)
+            OR \(raw: ProductBrand.tableName).language_code LIKE \(bind: languageCode)
             GROUP BY \(raw: Product.tableName).id, \(raw: ProductNutriments.tableName).id
             """)
         
@@ -220,8 +224,8 @@ struct ProductServiceImpl: APIProtocol {
         let productInfos = try await productRows.asyncMap { row in
             let product = try row.decodeToSQLModel(Product.self, usePrefix: true)
             let nutriments = try row.decodeToSQLModel(ProductNutriments.self, usePrefix: true)
-            let productNames = try await ProductName.queryAll(for: product.id, using: sql)
-            let productBrands = try await ProductBrand.queryAll(for: product.id, using: sql)
+            let productNames = try await ProductName.query(for: product.id, using: sql, matching: languageCode)
+            let productBrands = try await ProductBrand.query(for: product.id, using: sql, matching: languageCode)
             let productServings = try await ProductServing.queryAll(for: product.id, using: sql)
             return ProductInfo(product: product,
                                productNutriments: nutriments,

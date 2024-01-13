@@ -251,8 +251,8 @@ final class AppTests: XCTestCase {
             }
             let preview = ProductPreview(
                 id: productID.uuidString,
-                names: names.map { .init(value: $0.name, languageCode: $0.languageCode) },
-                brands:  brands.map { .init(value: $0.brand, languageCode: $0.languageCode) },
+                names: names.filter { $0.languageCode == "1" }.map { .init(value: $0.name, languageCode: $0.languageCode) },
+                brands:  brands.filter { $0.languageCode == "1" }.map { .init(value: $0.brand, languageCode: $0.languageCode) },
                 servings: [],
                 totalQuantity: Components.Schemas.Quantity(product: product),
                 calories: i,
@@ -267,15 +267,17 @@ final class AppTests: XCTestCase {
         XCTAssertEqual(savedProducts, 30)
         
         // WHEN
-        // sending a GET request to the export/previews route
-        try app.test(.GET, "export/previews", afterResponse: { response in
+        // sending a GET request to the export/previews route for the languageCode 1
+        try app.test(.GET, "export/previews/1", afterResponse: { response in
             // THEN
+            // the status code is 200
+            XCTAssertEqual(response.status, .ok)
             // the returned product previews
             let productPreviewsDto = try JSONDecoder().decode([ProductPreview].self, from: response.body)
             XCTAssertEqual(productPreviewsDto.count, 30)
             let actualJson = try createSortedJsonDictionaries(from: productPreviewsDto)
             
-            // and the retrieved JSON matches exactly the JSON of the full product test data.
+            // and the retrieved JSON matches the JSON of the expected product previews for the language code "1"
             XCTAssertEqualJSONDictionaries(actualJson, expectedJson)
         })
     }
@@ -293,7 +295,7 @@ final class AppTests: XCTestCase {
         
         // WHEN
         // sending a GET request to the export/previews route
-        try app.test(.GET, "export/previews", afterResponse: { response in
+        try app.test(.GET, "export/previews/1", afterResponse: { response in
             // THEN
             // the request is forbidden while the app is in production mode
             XCTAssertEqual(response.status, .forbidden)

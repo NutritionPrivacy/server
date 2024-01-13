@@ -39,8 +39,18 @@ extension ProductName: SQLModel {
     static func queryAll(for id: UUID, using sql: SQLDatabase) async throws -> [ProductName] {
         let productNameRows = try await sql.raw("""
             SELECT *
-            FROM "\(raw: ProductName.tableName)"
+            FROM "\(raw: Self.tableName)"
             WHERE "id" = \(bind: id)
+            """)
+            .all()
+        return try productNameRows.map { try $0.decode(model: ProductName.self) }
+    }
+    
+    static func query(for id: UUID, using sql: SQLDatabase, matching languageCode: String) async throws -> [ProductName] {
+        let productNameRows = try await sql.raw("""
+            SELECT *
+            FROM "\(raw: Self.tableName)"
+            WHERE "id" = \(bind: id) AND "language_code" LIKE \(bind: languageCode)
             """)
             .all()
         return try productNameRows.map { try $0.decode(model: ProductName.self) }
