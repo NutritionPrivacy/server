@@ -21,8 +21,8 @@ extension ProductServing: SQLModel {
     static let columns: [String] = CodingKeys.allCases.map(\.rawValue)
     static let columnsLiteral = columns.joined(separator: ", ")
     
-    func insert(into sql: SQLDatabase) async throws {
-        try await sql.raw("""
+    func save(on database: SQLDatabase) async throws {
+        try await database.raw("""
         INSERT INTO \(raw: Self.tableName) (\(raw: ProductServing.columnsLiteral))
         VALUES (\(bind: id), \(bind: name), \(bind: quantityUnit.rawValue), \(bind: quantityValue))
         """).run()

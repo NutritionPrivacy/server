@@ -125,14 +125,14 @@ struct ProductServiceImpl: APIProtocol {
         if let productDtoBrands = productDto.brands {
             let productBrands: [ProductBrand] = productDtoBrands.compactMap { .init(from: $0, id: product.id) }
             for productBrand in productBrands {
-                try await productBrand.insert(into: sqlDatabase)
+                try await productBrand.save(on: sqlDatabase)
             }
         }
         
         if let productDtoServings = productDto.servings {
             let productServings: [ProductServing] = productDtoServings.map { .init(from: $0, id: product.id) }
             for productServing in productServings {
-                try await productServing.insert(into: sqlDatabase)
+                try await productServing.save(on: sqlDatabase)
             }
         }
     }
