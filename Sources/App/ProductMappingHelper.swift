@@ -12,7 +12,7 @@ enum ProductMappingHelper {
                                           names: getLocalizedNames(for: info),
                                           brands: getLocalizedBrands(for: info),
                                           servings: getServings(from: info),
-                                          totalQuantity: getQuantity(from: product),
+                                          totalQuantity: .init(product: product),
                                           nutriments: .init(from: info.productNutriments),
                                           verified: product.verified,
                                           source: product.source)
@@ -31,17 +31,25 @@ enum ProductMappingHelper {
         )
     }
     
+    static func mapToPreviewDto(_ info: ProductInfo) -> Components.Schemas.ProductPreview {
+        let product = info.product
+        return Components.Schemas.ProductPreview(
+            id: product.id.uuidString,
+            names: getLocalizedNames(for: info),
+            brands: getLocalizedBrands(for: info),
+            servings: getServings(from: info),
+            totalQuantity: .init(product: product),
+            calories: info.productNutriments.energy100g,
+            verified: product.verified
+        )
+    }
+    
     private static func getLocalizedNames(for info: ProductInfo) -> [Components.Schemas.LocalizedValue] {
         return info.productNames.map { .init(value: $0.name, languageCode: $0.languageCode) }
     }
     
     private static func getLocalizedBrands(for info: ProductInfo) -> [Components.Schemas.LocalizedValue] {
         return info.productBrands.map { .init(value: $0.brand, languageCode: $0.languageCode) }
-    }
-    
-    private static func getQuantity(from product: Product) -> Components.Schemas.Quantity {
-        Components.Schemas.Quantity(unit: product.quantityUnit.dto,
-                                    value: Int64(product.quantityValue))
     }
     
     private static func getServings(from info: ProductInfo) -> [Components.Schemas.Serving] {
@@ -84,6 +92,12 @@ private extension Components.Schemas.Quantity.unitPayload {
         case .kg:
             return .kg
         }
+    }
+}
+
+extension Components.Schemas.Quantity {
+    init(product: Product) {
+        self.init(unit: product.quantityUnit.dto, value: Int64(product.quantityValue))
     }
 }
 

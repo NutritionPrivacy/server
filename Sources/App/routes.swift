@@ -16,4 +16,15 @@ func routes(_ app: Application) throws {
     // Call the generated function on your implementation to add its request
     // handlers to the app.
     try handler.registerHandlers(on: transport, serverURL: Servers.server1())
+    
+    app.get("export", "previews") { req async throws -> [Components.Schemas.ProductPreview] in
+        guard app.environment != .production else {
+            // The export/previews route is not allowed in the production env due to the potential performance impact.
+            // It exists as convenience method if one wants to transform a database dump to product previews.
+            throw Abort(.forbidden)
+        }
+        return try await handler.exportProductPreviews()
+    }
 }
+
+extension Components.Schemas.ProductPreview: Content {}

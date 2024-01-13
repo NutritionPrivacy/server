@@ -94,6 +94,15 @@ struct ProductServiceImpl: APIProtocol {
         return .ok(.init(body: .json(.init(page: page, array: products))))
     }
     
+    func exportProductPreviews() async throws -> [Components.Schemas.ProductPreview] {
+        guard let database else {
+            throw Abort(.internalServerError, reason: "Missing database.")
+        }
+        return try await database.transaction {
+            try await exportPreviewsTransaction(database: $0)
+        }
+    }
+    
     private func addProduct(_ productDto: Components.Schemas.Product, database: Database) async throws {
         try await database.transaction { database in
             try await addProductTransaction(productDto, database: database)
@@ -190,6 +199,37 @@ struct ProductServiceImpl: APIProtocol {
                                productServings: productServings)
         }
         return productInfos
+    }
+    
+    private func exportPreviewsTransaction(database: Database) async throws -> [Components.Schemas.ProductPreview] {
+        guard database.inTransaction else {
+            throw Abort(.internalServerError, reason: "Called exportPreviewsTransaction but the passed database is not in transaction")
+        }
+        guard let sql = database as? SQLDatabase else {
+            throw Abort(.internalServerError, reason: "Database not supported.")
+        }
+        
+        let rawQuery = SQLQueryString("""
+            SELECT \(raw: productColumns), \(raw: nutrimentsColumns)
+            FROM \(raw: Product.tableName)
+            JOIN "\(raw: ProductNutriments.tableName)" ON "\(raw: Product.tableName)"."id" = "\(raw: ProductNutriments.tableName)"."id"
+            GROUP BY \(raw: Product.tableName).id, \(raw: ProductNutriments.tableName).id
+            """)
+        
+        let productRows = try await sql.raw(rawQuery).all()
+        let productInfos = try await productRows.asyncMap { row in
+            let product = try row.decodeToSQLModel(Product.self, usePrefix: true)
+            let nutriments = try row.decodeToSQLModel(ProductNutriments.self, usePrefix: true)
+            let productNames = try await ProductName.queryAll(for: product.id, using: sql)
+            let productBrands = try await ProductBrand.queryAll(for: product.id, using: sql)
+            let productServings = try await ProductServing.queryAll(for: product.id, using: sql)
+            return ProductInfo(product: product,
+                               productNutriments: nutriments,
+                               productNames: productNames,
+                               productBrands: productBrands,
+                               productServings: productServings)
+        }
+        return productInfos.map(ProductMappingHelper.mapToPreviewDto(_:))
     }
 }
 

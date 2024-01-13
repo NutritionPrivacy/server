@@ -227,14 +227,87 @@ final class AppTests: XCTestCase {
         })
     }
     
-    private func createProductEntry() async throws -> Product {
+    // MARK: exportPreviews
+    
+    func test_exportPreviews() async throws {
+        typealias ProductPreview = Components.Schemas.ProductPreview
+        // GIVEN
+        // 30 Products with 30 localized names each are stored in the database
+        let database = try getSqlDatabase()
+        var productPreviews = [ProductPreview]()
+        for i in 0..<30 {
+            let product = try await createProductEntry(energy100g: i)
+            let productID = try XCTUnwrap(product.id)
+            var names = [ProductName]()
+            var brands = [ProductBrand]()
+            for j in 0..<30 {
+                let name =  TestData.createDummyProductName(id: productID, name: "TestName\(j)", languageCode: "\(j)")
+                names.append(name)
+                try await name.save(on: database)
+                
+                let brand = TestData.createDummyProductBrand(id: productID, brand: "TestBrand\(j)", languageCode: "\(j)")
+                brands.append(brand)
+                try await brand.save(on: database)
+            }
+            let preview = ProductPreview(
+                id: productID.uuidString,
+                names: names.map { .init(value: $0.name, languageCode: $0.languageCode) },
+                brands:  brands.map { .init(value: $0.brand, languageCode: $0.languageCode) },
+                servings: [],
+                totalQuantity: Components.Schemas.Quantity(product: product),
+                calories: i,
+                verified: product.verified
+            )
+            productPreviews.append(preview)
+        }
+        
+        let expectedJson = try createSortedJsonDictionaries(from: productPreviews)
+        
+        let savedProducts = try await Product.queryCount(on: database)
+        XCTAssertEqual(savedProducts, 30)
+        
+        // WHEN
+        // sending a GET request to the export/previews route
+        try app.test(.GET, "export/previews", afterResponse: { response in
+            // THEN
+            // the returned product previews
+            let productPreviewsDto = try JSONDecoder().decode([ProductPreview].self, from: response.body)
+            XCTAssertEqual(productPreviewsDto.count, 30)
+            let actualJson = try createSortedJsonDictionaries(from: productPreviewsDto)
+            
+            // and the retrieved JSON matches exactly the JSON of the full product test data.
+            XCTAssertEqualJSONDictionaries(actualJson, expectedJson)
+        })
+    }
+    
+    func test_exportPreviews_production_routeIsForbidden() async throws {
+        // GIVEN
+        // a product exists in the database
+        let database = try getSqlDatabase()
+        _ = try await createProductEntry()
+        let savedProducts = try await Product.queryCount(on: database)
+        XCTAssertEqual(savedProducts, 1)
+        
+        // and the app env is production
+        app.environment = .production
+        
+        // WHEN
+        // sending a GET request to the export/previews route
+        try app.test(.GET, "export/previews", afterResponse: { response in
+            // THEN
+            // the request is forbidden while the app is in production mode
+            XCTAssertEqual(response.status, .forbidden)
+        })
+    }
+    
+    private func createProductEntry(energy100g: Int = 100) async throws -> Product {
         let id = UUID()
         let database = try getSqlDatabase()
         let product = TestData.createDummyProduct(id: id)
         try await product.save(on: database)
         
         let nutriments = TestData.createDummyProductNutriments(id: id,
-                                                        energy100g: 100,
+                                                        energy100g: energy100g,
                                                         proteins100g: 20,
                                                         fat100g: 10,
                                                         carbohydrates100g: 240)
@@ -244,6 +317,24 @@ final class AppTests: XCTestCase {
     
     private func getSqlDatabase() throws -> SQLDatabase {
         return try XCTUnwrap(app.db as? SQLDatabase)
+    }
+    
+    private func createSortedJsonDictionaries(from previews: [Components.Schemas.ProductPreview]) throws -> [[String: Any]] {
+        let sortedPreviews = previews.sorted(by: { $0.id < $1.id })
+        let jsonData = try JSONEncoder().encode(sortedPreviews)
+        let jsonObject = try JSONSerialization.jsonObject(with: jsonData)
+        return try XCTUnwrap(jsonObject as? [[String: Any]])
+    }
+}
+
+private func XCTAssertEqualJSONDictionaries(_ expression1: [[String: Any]], _ expression2: [[String: Any]], file: StaticString = #filePath, line: UInt = #line) {
+    XCTAssertEqual(expression1.count, expression2.count, file: file, line: line)
+    for (index, element1) in expression1.enumerated() {
+        guard let element2 = expression2[safe: index] else {
+            XCTFail("Missing element, requested element at \(index) but could only find indices up to \(expression2.count - 1)", file: file, line: line)
+            return
+        }
+        XCTAssertEqualJSONDictionaries(element1, element2, file: file, line: line)
     }
 }
 
