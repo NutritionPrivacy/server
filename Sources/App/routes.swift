@@ -26,6 +26,11 @@ func routes(_ app: Application) throws {
         let languageCode = req.parameters.get("languageCode")!
         return try await handler.exportProductPreviews(languageCode: languageCode)
     }
+    
+    // an base level route used for container healthchecks
+        app.get { req in
+            return "OK"
+        }
 }
 
 extension Components.Schemas.ProductPreview: Content {}
